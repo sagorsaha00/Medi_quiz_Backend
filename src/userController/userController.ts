@@ -43,7 +43,17 @@ export class UserController {
         ...payload,
         id: persistedRefreshToken.id,
       });
-
+      res.cookie("accessToken", accessToken, {
+        sameSite: "strict",
+        maxAge: 1000 * 60 * 60,
+        httpOnly: true,
+      });
+      console.log("token set in cookie", accessToken);
+      res.cookie("refreshToken", refreshToken, {
+        sameSite: "strict",
+        maxAge: 1000 * 60 * 60 * 24 * 365, //1y
+        httpOnly: true,
+      });
       return res.status(201).json({
         message: "✅ Registration successful",
         user: {

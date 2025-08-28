@@ -35,6 +35,7 @@ const SubmitResultSchema = new Schema<ISubmitResult>({
   totalQuestions: { type: Number, required: true },
   correctAnswers: { type: Number, required: true },
   wrongAnswers: { type: Number, required: true },
+  percentage: { type: Number, required: true },
   createdAt: { type: Date, default: Date.now },
 });
 

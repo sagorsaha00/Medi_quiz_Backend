@@ -14,10 +14,17 @@ router.post("/submit", authMiddleware, (req, res) =>
   quizController.SubmitQuizAns(req, res)
 );
 
-router.get(
-  "/GetResultHistory",
-  authMiddleware,
-  (req, res) => quizController.getUserHistory(req, res)
+router.get("/GetResultHistory", (req, res) =>
+  quizController.getUserHistory(req, res)
+);
+router.get("/categories", (req, res) =>
+  quizController.getAvailableCategories(req, res)
 );
 
+router.get("/getRandomQuestion", (req, res) =>
+  quizController.getRandomQuestion(req, res)
+);
+router.post("/submitRandomQuiz", (req,res) => {
+  quizController.submitPracticeAnswer(req,res);
+})
 export default router;

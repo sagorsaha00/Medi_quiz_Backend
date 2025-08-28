@@ -37,5 +37,6 @@ export type ISubmitResult = {
   totalQuestions: number;
   correctAnswers: number;
   wrongAnswers: number;
+  percentage:number
   createdAt: Date;
 };

@@ -8,71 +8,76 @@ import { JwtPayload } from "jsonwebtoken";
 
 export class UserController {
   constructor(private tokenService: TokenService) {}
-  async createUser(req: Request, res: Response) {
-    const { FirstName, LastName, Username, Email, Password } = req.body;
+ async createUser(req: Request, res: Response) {
+  const { FirstName, LastName, Username, Email, Password } = req.body;
 
-    if (!FirstName || !LastName || !Username || !Email || !Password) {
-      return res.status(400).json({ message: "Email and password required." });
-    }
-
-    try {
-      const existingUser = await User.findOne({ email: Email });
-      if (existingUser) {
-        return res.status(409).json({ message: "User already exists." });
-      }
-
-      const hashedPassword = await bcrypt.hash(Password, 10);
-
-      const newUser = new User({
-        firstName: FirstName,
-        lastName: LastName,
-        username: Username,
-        email: Email,
-        password: hashedPassword,
-      });
-      await newUser.save();
-
-      const payload = { id: newUser._id, email: newUser.email };
-
-      // Generate tokens
-      const accessToken = this.tokenService.genarateAccessToken(payload);
-      const persistedRefreshToken = await this.tokenService.persistRefreshToken(
-        payload
-      );
-      const refreshToken = this.tokenService.genarateRefreshToken({
-        ...payload,
-        id: persistedRefreshToken.id,
-      });
-      res.cookie("accessToken", accessToken, {
-        sameSite: "strict",
-        maxAge: 1000 * 60 * 60,
-        httpOnly: true,
-      });
-      console.log("token set in cookie", accessToken);
-      res.cookie("refreshToken", refreshToken, {
-        sameSite: "strict",
-        maxAge: 1000 * 60 * 60 * 24 * 365, //1y
-        httpOnly: true,
-      });
-      return res.status(201).json({
-        message: "✅ Registration successful",
-        user: {
-          id: newUser._id,
-          email: newUser.email,
-          firstName: newUser.firstName,
-          lastName: newUser.lastName,
-          username: newUser.username,
-        },
-        tokens: {
-          accessToken,
-          refreshToken,
-        },
-      });
-    } catch (err) {
-      console.error("Register Error:", err);
-      return res.status(500).json({ message: "Server error" });
-    }
+  if (!FirstName || !LastName || !Username || !Email || !Password) {
+    return res.status(400).json({ message: "Email and password required." });
   }
+
+  try {
+    const existingUser = await User.findOne({ email: Email });
+    if (existingUser) {
+      return res.status(409).json({ message: "User already exists." });
+    }
+
+    const hashedPassword = await bcrypt.hash(Password, 10);
+
+    // 🔥 Auto generate avatar link
+    const avatarUrl = `https://ui-avatars.com/api/?name=${FirstName}+${LastName}&background=random&size=128&rounded=true`;
+
+    const newUser = new User({
+      firstName: FirstName,
+      lastName: LastName,
+      username: Username,
+      email: Email,
+      password: hashedPassword,
+      avatar: avatarUrl, // 👈 Save avatar
+    });
+
+    await newUser.save();
+
+    const payload = { id: newUser._id, email: newUser.email };
+
+    const accessToken = this.tokenService.genarateAccessToken(payload);
+    const persistedRefreshToken = await this.tokenService.persistRefreshToken(payload);
+    const refreshToken = this.tokenService.genarateRefreshToken({
+      ...payload,
+      id: persistedRefreshToken.id,
+    });
+
+    res.cookie("accessToken", accessToken, {
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60,
+      httpOnly: true,
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60 * 24 * 365,
+      httpOnly: true,
+    });
+
+    return res.status(201).json({
+      message: "✅ Registration successful",
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        username: newUser.username,
+        avatar: newUser.avatar, // 👈 Return avatar
+      },
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (err) {
+    console.error("Register Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
 
   async loginUser(req: Request, res: Response) {
     const { username, email, password } = req.body;

@@ -32,6 +32,10 @@ const userSchema: Schema = new Schema<IUser>(
       required: true,
       minlength: 6,
     },
+    avatar: {
+      type: String,
+      default: "",
+    },
     createdAt: {
       type: Date,
       default: Date.now,

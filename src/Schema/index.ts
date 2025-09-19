@@ -5,6 +5,7 @@ export interface IUser extends Document {
   lastName: string;
   username: string;
   email: string;
+  avatar: string;
   password: string;
   createdAt: Date;
 }
@@ -37,6 +38,6 @@ export type ISubmitResult = {
   totalQuestions: number;
   correctAnswers: number;
   wrongAnswers: number;
-  percentage:number
+  percentage: number;
   createdAt: Date;
 };

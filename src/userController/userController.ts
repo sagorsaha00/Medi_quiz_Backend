@@ -5,94 +5,94 @@ import User from "../database/databaseSchema";
 import { TokenService } from "../service/tokenservice";
 import { RequestWithUser } from "../Schema";
 import { JwtPayload } from "jsonwebtoken";
+import mongoose from "mongoose";
 
 export class UserController {
   constructor(private tokenService: TokenService) {}
- async createUser(req: Request, res: Response) {
-  const { FirstName, LastName, Username, Email, Password } = req.body;
+  async createUser(req: Request, res: Response) {
+    const { FirstName, LastName, Username, Email, Password } = req.body;
 
-  if (!FirstName || !LastName || !Username || !Email || !Password) {
-    return res.status(400).json({ message: "Email and password required." });
-  }
-
-  try {
-    const existingUser = await User.findOne({ email: Email });
-    if (existingUser) {
-      return res.status(409).json({ message: "User already exists." });
+    if (!FirstName || !LastName || !Username || !Email || !Password) {
+      return res.status(400).json({ message: "Email and password required." });
     }
 
-    const hashedPassword = await bcrypt.hash(Password, 10);
+    try {
+      const existingUser = await User.findOne({ email: Email });
+      if (existingUser) {
+        return res.status(409).json({ message: "User already exists." });
+      }
 
-    // 🔥 Auto generate avatar link
-    const avatarUrl = `https://ui-avatars.com/api/?name=${FirstName}+${LastName}&background=random&size=128&rounded=true`;
+      const hashedPassword = await bcrypt.hash(Password, 10);
 
-    const newUser = new User({
-      firstName: FirstName,
-      lastName: LastName,
-      username: Username,
-      email: Email,
-      password: hashedPassword,
-      avatar: avatarUrl, // 👈 Save avatar
-    });
+      // 🔥 Auto generate avatar link
+      const avatarUrl = `https://ui-avatars.com/api/?name=${FirstName}+${LastName}&background=random&size=128&rounded=true`;
 
-    await newUser.save();
+      const newUser = new User({
+        firstName: FirstName,
+        lastName: LastName,
+        username: Username,
+        email: Email,
+        password: hashedPassword,
+        avatar: avatarUrl, // 👈 Save avatar
+      });
 
-    const payload = { id: newUser._id, email: newUser.email };
+      await newUser.save();
 
-    const accessToken = this.tokenService.genarateAccessToken(payload);
-    const persistedRefreshToken = await this.tokenService.persistRefreshToken(payload);
-    const refreshToken = this.tokenService.genarateRefreshToken({
-      ...payload,
-      id: persistedRefreshToken.id,
-    });
+      const payload = { id: newUser._id, email: newUser.email };
 
-    res.cookie("accessToken", accessToken, {
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60,
-      httpOnly: true,
-    });
+      const accessToken = this.tokenService.genarateAccessToken(payload);
+      const persistedRefreshToken = await this.tokenService.persistRefreshToken(
+        payload
+      );
+      const refreshToken = this.tokenService.genarateRefreshToken({
+        ...payload,
+        id: persistedRefreshToken.id,
+      });
 
-    res.cookie("refreshToken", refreshToken, {
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60 * 24 * 365,
-      httpOnly: true,
-    });
+      res.cookie("accessToken", accessToken, {
+        sameSite: "strict",
+        maxAge: 1000 * 60 * 60,
+        httpOnly: true,
+      });
 
-    return res.status(201).json({
-      message: "✅ Registration successful",
-      user: {
-        id: newUser._id,
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        username: newUser.username,
-        avatar: newUser.avatar, // 👈 Return avatar
-      },
-      tokens: {
-        accessToken,
-        refreshToken,
-      },
-    });
-  } catch (err) {
-    console.error("Register Error:", err);
-    return res.status(500).json({ message: "Server error" });
+      res.cookie("refreshToken", refreshToken, {
+        sameSite: "strict",
+        maxAge: 1000 * 60 * 60 * 24 * 365,
+        httpOnly: true,
+      });
+
+      return res.status(201).json({
+        message: "✅ Registration successful",
+        user: {
+          id: newUser._id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          username: newUser.username,
+          avatar: newUser.avatar,
+        },
+        tokens: {
+          accessToken,
+          refreshToken,
+        },
+      });
+    } catch (err) {
+      console.error("Register Error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
   }
-}
 
   async loginUser(req: Request, res: Response) {
-    const { username, email, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username || !email || !password) {
+    if (!email || !password) {
       return res.status(400).json({ message: "User Doesn't Match Your Info " });
     }
-    const checkusername = await User.findOne({ username });
-    if (!checkusername) {
-      return null;
-    }
+
     try {
       const user = await User.findOne({ email });
       if (!user) {
-        return res.status(404).json({ message: "User not found." });
+        return res.status(404).json({ message: "User not found in Database" });
       }
 
       const isValid = await bcrypt.compare(password, user.password);
@@ -143,9 +143,7 @@ export class UserController {
 
   async refreshToken(req: Request, res: Response) {
     const { refreshToken } = req.body;
-    console.log("req body:", req.body);
-    console.log("refreshToken from request body:", refreshToken);
-    console.log("refreshToken from request body id:", refreshToken.id);
+
     if (!refreshToken) {
       return res.status(401).json({ message: "Refresh token missing" });
     }
@@ -153,10 +151,15 @@ export class UserController {
     try {
       const payload = await this.tokenService.verifyRefreshToken(refreshToken);
 
-      // 2. Check if refresh token exists in database
-      const existingToken = await this.tokenService.findRefreshToken(
-        refreshToken.id
-      );
+      const refreshTokenObj = {
+        id: new mongoose.Types.ObjectId(refreshToken._id),
+      };
+
+      const idString = refreshTokenObj.id.toString();
+      console.log("idString:", idString);
+
+      const existingToken = await this.tokenService.findRefreshToken(idString);
+
       if (!existingToken) {
         return res
           .status(403)
@@ -168,16 +171,16 @@ export class UserController {
         id: payload.id,
         email: payload.email,
       });
+      console.log("newaccessToken generated:", newAccessToken);
 
-      // 4. Rotate refresh token (delete old, create new)
       const newRefreshTokenResult =
         await this.tokenService.genarateRefreshToken({
           refreshToken,
           id: payload.id,
           email: payload.email,
         });
+
       await this.tokenService.deleteRefreshToken(refreshToken);
-      console.log("Tokens refreshed successfully");
 
       return res.status(200).json({
         message: "Tokens refreshed successfully",
@@ -196,11 +199,6 @@ export class UserController {
 
   async selfData(req: RequestWithUser, res: Response) {
     try {
-      // req.user এর বদলে পুরো req log করবেন না, security risk
-      console.log("req.user exists:", !!req.user);
-      console.log("req.user data:", req.user);
-
-      // User object check করুন
       if (!req.user) {
         console.log("No user object found in request");
         return res.status(401).json({
@@ -210,7 +208,6 @@ export class UserController {
       }
 
       const userId = req.user.id;
-      console.log("User ID from token:", userId);
 
       if (!userId) {
         console.log("No user ID found in token");
@@ -234,7 +231,6 @@ export class UserController {
 
       console.log("User found successfully:", user.email);
 
-      // Password field বাদ দিয়ে response পাঠান
       const { password, ...userWithoutPassword } = user.toObject();
 
       return res.status(200).json({

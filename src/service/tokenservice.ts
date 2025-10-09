@@ -1,5 +1,6 @@
 import createHttpError from "http-errors";
 import * as jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import { RefreshTokenSchema } from "../database/refreshToken";
 import { JwtPayload } from "jsonwebtoken";
 
@@ -17,7 +18,7 @@ export class TokenService {
 
     const accessToken = jwt.sign(plainPayload, ACCESS_SECRET, {
       algorithm: "HS256",
-      expiresIn: "10m", // 10 min for testing
+      expiresIn: "10", // 10 min for testing
       jwtid: String(payload.id),
       subject: payload.email,
       issuer: "React_Native",
@@ -32,7 +33,7 @@ export class TokenService {
   genarateRefreshToken(payload: JwtPayload) {
     const refreshToken = jwt.sign(payload, REFRESH_SECRET, {
       algorithm: "HS256",
-      expiresIn: "10d", // 10 days for testing
+      expiresIn: "3m", // 3 min for testing
       issuer: "React_Native",
       jwtid: String(payload.id),
     });
@@ -44,8 +45,9 @@ export class TokenService {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     const newRefreshToken = new this.refreshTokenRepository({
-      userId: user.id,
+      userId: user._id,
       email: user.email,
+      
       expiresAt,
     });
 
@@ -63,7 +65,7 @@ export class TokenService {
 
   async verifyRefreshToken(
     token: string
-  ): Promise<{ id: string; email: string }> {
+  ): Promise<{ id: string; email: string,_id?: string }> {
     try {
       const payload = jwt.verify(token, REFRESH_SECRET) as {
         id: string;
@@ -76,7 +78,13 @@ export class TokenService {
   }
 
   async findRefreshToken(token: string) {
-    return await this.refreshTokenRepository.findOne({ token });
+    console.log("token", token);
+
+    const checkToken = await this.refreshTokenRepository.findOne({
+      _id: new mongoose.Types.ObjectId(token),
+    });
+    console.log("checkToken", checkToken);
+    return checkToken;
   }
 
   async deleteRefreshToken(token: string) {

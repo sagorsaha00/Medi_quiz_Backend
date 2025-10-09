@@ -4,7 +4,6 @@ import { Schema, model, Document } from "mongoose";
 export interface IRefreshToken extends Document {
   userId: string | Schema.Types.ObjectId;
   email: string;
-  token: string;
   expiresAt: Date;
   createdAt: Date;
   userAgent?: string;
@@ -21,7 +20,6 @@ const refreshTokenSchema = new Schema<IRefreshToken>({
     type: String,
     required: true,
   },
-
   expiresAt: {
     type: Date,
     required: true,

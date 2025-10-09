@@ -110,7 +110,7 @@ export class UserController {
 
       const newrefreshToken = this.tokenService.genarateRefreshToken({
         ...payload,
-        id: persistedRefreshToken.id,
+        _id: persistedRefreshToken.id,
       });
 
       res.cookie("accessToken", accessToken, {
@@ -143,6 +143,7 @@ export class UserController {
 
   async refreshToken(req: Request, res: Response) {
     const { refreshToken } = req.body;
+    console.log("refreshToken received:", refreshToken);
 
     if (!refreshToken) {
       return res.status(401).json({ message: "Refresh token missing" });
@@ -150,19 +151,18 @@ export class UserController {
 
     try {
       const payload = await this.tokenService.verifyRefreshToken(refreshToken);
+      console.log("payload", payload);
 
-      const refreshTokenObj = {
-        id: new mongoose.Types.ObjectId(refreshToken._id),
-      };
+        const tokenId = payload._id as string;
 
-      const idString = refreshTokenObj.id.toString();
-      console.log("idString:", idString);
+      
 
-      const existingToken = await this.tokenService.findRefreshToken(idString);
+      const existingToken = await this.tokenService.findRefreshToken(tokenId);
+      console.log("existingToken:", existingToken);
 
       if (!existingToken) {
         return res
-          .status(403)
+          .status(402)
           .json({ message: "Refresh token not found in database" });
       }
 
@@ -181,6 +181,7 @@ export class UserController {
         });
 
       await this.tokenService.deleteRefreshToken(refreshToken);
+      
 
       return res.status(200).json({
         message: "Tokens refreshed successfully",

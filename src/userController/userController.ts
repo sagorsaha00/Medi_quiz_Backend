@@ -13,7 +13,7 @@ export class UserController {
     const { FirstName, LastName, Username, Email, Password } = req.body;
 
     if (!FirstName || !LastName || !Username || !Email || !Password) {
-      return res.status(400).json({ message: "Email and password required." });
+      return res.status(400).json({ message: "All fields are required." });
     }
 
     try {
@@ -23,8 +23,6 @@ export class UserController {
       }
 
       const hashedPassword = await bcrypt.hash(Password, 10);
-
-      // 🔥 Auto generate avatar link
       const avatarUrl = `https://ui-avatars.com/api/?name=${FirstName}+${LastName}&background=random&size=128&rounded=true`;
 
       const newUser = new User({
@@ -33,31 +31,26 @@ export class UserController {
         username: Username,
         email: Email,
         password: hashedPassword,
-        avatar: avatarUrl, // 👈 Save avatar
+        avatar: avatarUrl,
       });
 
       await newUser.save();
-
-      const payload = { id: newUser._id, email: newUser.email };
+      const payload = { id: newUser._id as string, email: newUser.email };
 
       const accessToken = this.tokenService.genarateAccessToken(payload);
-      const persistedRefreshToken = await this.tokenService.persistRefreshToken(
+      const refreshToken = await this.tokenService.genarateRefreshToken(
         payload
       );
-      const refreshToken = this.tokenService.genarateRefreshToken({
-        ...payload,
-        id: persistedRefreshToken.id,
-      });
 
       res.cookie("accessToken", accessToken, {
         sameSite: "strict",
-        maxAge: 1000 * 60 * 60,
+        maxAge: 1000 * 60 * 10, // 10 min
         httpOnly: true,
       });
 
       res.cookie("refreshToken", refreshToken, {
         sameSite: "strict",
-        maxAge: 1000 * 60 * 60 * 24 * 365,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
         httpOnly: true,
       });
 
@@ -86,13 +79,13 @@ export class UserController {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "User Doesn't Match Your Info " });
+      return res.status(400).json({ message: "Email and password required." });
     }
 
     try {
       const user = await User.findOne({ email });
       if (!user) {
-        return res.status(404).json({ message: "User not found in Database" });
+        return res.status(404).json({ message: "User not found." });
       }
 
       const isValid = await bcrypt.compare(password, user.password);
@@ -100,40 +93,33 @@ export class UserController {
         return res.status(401).json({ message: "Invalid credentials." });
       }
 
-      const payload: JwtPayload = { id: String(user._id), email: user.email };
+      const payload = {
+        id: String(user._id),
+        email: user.email,
+      };
 
       const accessToken = this.tokenService.genarateAccessToken(payload);
-
-      const persistedRefreshToken = await this.tokenService.persistRefreshToken(
-        user
+      const refreshToken = await this.tokenService.genarateRefreshToken(
+        payload
       );
 
-      const newrefreshToken = this.tokenService.genarateRefreshToken({
-        ...payload,
-        _id: persistedRefreshToken.id,
-      });
-
+      // ✅ Cookies
       res.cookie("accessToken", accessToken, {
         sameSite: "strict",
-        maxAge: 1000 * 60 * 60,
+        maxAge: 1000 * 60 * 10,
         httpOnly: true,
       });
-      console.log("token set in cookie", accessToken);
-      res.cookie("refreshToken", newrefreshToken, {
+
+      res.cookie("refreshToken", refreshToken, {
         sameSite: "strict",
-        maxAge: 1000 * 60 * 60 * 24 * 365, //1y
+        maxAge: 1000 * 60 * 60 * 24 * 7,
         httpOnly: true,
       });
-      console.log("token set is cookie", newrefreshToken);
-      // Persist the new refresh token
 
       return res.status(200).json({
         message: "✅ Login successful",
         user: { id: user._id, email: user.email },
-        tokens: {
-          accessToken,
-          refreshToken: newrefreshToken,
-        },
+        tokens: { accessToken, refreshToken },
       });
     } catch (err) {
       console.error("Login Error:", err);
@@ -153,9 +139,7 @@ export class UserController {
       const payload = await this.tokenService.verifyRefreshToken(refreshToken);
       console.log("payload", payload);
 
-        const tokenId = payload._id as string;
-
-      
+      const tokenId = payload._id as string;
 
       const existingToken = await this.tokenService.findRefreshToken(tokenId);
       console.log("existingToken:", existingToken);
@@ -175,13 +159,11 @@ export class UserController {
 
       const newRefreshTokenResult =
         await this.tokenService.genarateRefreshToken({
-          refreshToken,
           id: payload.id,
           email: payload.email,
         });
 
       await this.tokenService.deleteRefreshToken(refreshToken);
-      
 
       return res.status(200).json({
         message: "Tokens refreshed successfully",
@@ -199,6 +181,7 @@ export class UserController {
   }
 
   async selfData(req: RequestWithUser, res: Response) {
+ 
     try {
       if (!req.user) {
         console.log("No user object found in request");
@@ -207,9 +190,8 @@ export class UserController {
           error: "NO_USER_DATA",
         });
       }
-
-      const userId = req.user.id;
-
+ 
+      const userId = req.user.id || req.user;
       if (!userId) {
         console.log("No user ID found in token");
         return res.status(401).json({
@@ -218,9 +200,8 @@ export class UserController {
         });
       }
 
-      // Database থেকে user খুঁজুন
       console.log("Searching for user with ID:", userId);
-      const user = await User.findById(userId);
+      const user = await User.findById(userId).select("-password");
 
       if (!user) {
         console.log("User not found in database for ID:", userId);
@@ -232,19 +213,16 @@ export class UserController {
 
       console.log("User found successfully:", user.email);
 
-      const { password, ...userWithoutPassword } = user.toObject();
-
       return res.status(200).json({
-        message: "User data fetched successfully",
-        user: userWithoutPassword,
         success: true,
+        message: "User data fetched successfully",
+        user,
       });
     } catch (err: any) {
       console.error("Self data error:", err);
       return res.status(500).json({
         message: "Server error while fetching user data",
         error: "SERVER_ERROR",
-        ...(process.env.NODE_ENV === "development" && { details: err.message }),
       });
     }
   }

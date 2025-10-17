@@ -1,6 +1,6 @@
 import createHttpError from "http-errors";
 import * as jwt from "jsonwebtoken";
-import mongoose from "mongoose";
+import { ObjectId, Types } from 'mongoose';
 import { RefreshTokenSchema } from "../database/refreshToken";
 import { JwtPayload } from "jsonwebtoken";
 
@@ -30,42 +30,63 @@ export class TokenService {
     return accessToken;
   }
 
-  genarateRefreshToken(payload: JwtPayload) {
-    const refreshToken = jwt.sign(payload, REFRESH_SECRET, {
-      algorithm: "HS256",
-      expiresIn: "3m", // 3 min for testing
-      issuer: "React_Native",
-      jwtid: String(payload.id),
+  async genarateRefreshToken(payload: { id: string; email: string }) {
+     const tokenId = new Types.ObjectId().toString();// unique id for refresh token
+
+    const refreshToken = jwt.sign(
+      {
+        id: payload.id,
+        email: payload.email,
+        jti: tokenId,
+      },
+      REFRESH_SECRET,
+      {
+        algorithm: "HS256",
+        expiresIn: "7d", // 7 days
+        issuer: "React_Native",
+      }
+    );
+    console.log("refreshToken", refreshToken);
+    // ✅ Save to DB
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const newRefreshToken = new this.refreshTokenRepository({
+      _id: tokenId,
+      userId: payload.id,
+      email: payload.email,
+      token: refreshToken,
+      expiresAt,
     });
+
+    await newRefreshToken.save();
 
     return refreshToken;
   }
 
-  async persistRefreshToken(user: any) {
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  // async persistRefreshToken(user: any) {
+  //   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    const newRefreshToken = new this.refreshTokenRepository({
-      userId: user._id,
-      email: user.email,
-      
-      expiresAt,
-    });
+  //   const newRefreshToken = new this.refreshTokenRepository({
+  //     userId: user._id,
+  //     email: user.email,
 
-    try {
-      const savedRefreshToken = await newRefreshToken.save();
+  //     expiresAt,
+  //   });
 
-      return {
-        id: savedRefreshToken._id,
-      };
-    } catch (error) {
-      console.error("Error saving refresh token:", error);
-      throw createHttpError(500, "Failed to persist refresh token");
-    }
-  }
+  //   try {
+  //     const savedRefreshToken = await newRefreshToken.save();
+
+  //     return {
+  //       id: savedRefreshToken._id,
+  //     };
+  //   } catch (error) {
+  //     console.error("Error saving refresh token:", error);
+  //     throw createHttpError(500, "Failed to persist refresh token");
+  //   }
+  // }
 
   async verifyRefreshToken(
     token: string
-  ): Promise<{ id: string; email: string,_id?: string }> {
+  ): Promise<{ id: string; email: string; _id?: string }> {
     try {
       const payload = jwt.verify(token, REFRESH_SECRET) as {
         id: string;
@@ -81,7 +102,7 @@ export class TokenService {
     console.log("token", token);
 
     const checkToken = await this.refreshTokenRepository.findOne({
-      _id: new mongoose.Types.ObjectId(token),
+      email: token,
     });
     console.log("checkToken", checkToken);
     return checkToken;

@@ -120,57 +120,53 @@ export class QuizController {
   // ✅ Get Questions for Quiz (without correct answers)
   async getQuestionsForQuiz(req: Request, res: Response) {
     console.log("question get hit");
-    const { limit, category } = req.query;
+    const { limit, category, excludeIds } = req.query; // নতুন query param যোগ
 
     try {
-      // Base filter - শুধু active questions নিবো
       const filter: any = { isActive: true };
 
-      // Category wise filter করা হবে
+      
       if (category && category !== "all") {
         filter.category = {
           $regex: new RegExp(category as string, "i"),
         };
       }
 
-      // Limit set করা - default 20
+      // আগে দেখা প্রশ্ন বাদ
+      if (excludeIds) {
+        const idsArray = (excludeIds as string)
+          .split(",")
+          .map((id) => new mongoose.Types.ObjectId(id));
+        filter._id = { $nin: idsArray }; // এগুলো বাদ যাবে
+      }
+
       const questionLimit = parseInt(limit as string) || 20;
 
       const questions = await Question.aggregate([
         { $match: filter },
-
-        // Random sampling করা হবে
         { $sample: { size: questionLimit } },
-
-        // Required fields select করা হবে
         {
           $project: {
             _id: 1,
             question: 1,
             options: 1,
             category: 1,
-            answer: 1,  
+            answer: 1,
           },
         },
       ]);
 
-      // যদি কোন প্রশ্ন না পাওয়া যায়
       if (questions.length === 0) {
         return res.status(404).json({
-          message: category
-            ? `No questions found for category: ${category}`
-            : "No questions found for the specified criteria",
+          message: "No more new questions available",
           success: false,
           count: 0,
           questions: [],
         });
       }
 
-      
       return res.status(200).json({
-        message: category
-          ? `${category} questions fetched successfully`
-          : "Questions fetched successfully",
+        message: "Questions fetched successfully",
         success: true,
         count: questions.length,
         category: category || "all",
@@ -179,7 +175,7 @@ export class QuizController {
           question: q.question,
           options: q.options,
           category: q.category,
-          answer: q.answer,  
+          answer: q.answer,
         })),
       });
     } catch (error: any) {
@@ -263,13 +259,33 @@ export class QuizController {
   //get one question
   async getRandomQuestion(req: Request, res: Response) {
     try {
-      // active questions থেকে random একটি প্রশ্ন
-      const count = await Question.countDocuments({ isActive: true });
-      const randomIndex = Math.floor(Math.random() * count);
+      const { excludeIds, category } = req.query;
 
-      const question = await Question.findOne({ isActive: true }).skip(
-        randomIndex
-      );
+      const filter: any = { isActive: true };
+
+      // ✅ Category filter
+      if (category && category !== "all") {
+        filter.category = { $regex: new RegExp(category as string, "i") };
+      }
+
+      // ✅ exclude previously seen questions
+      if (excludeIds) {
+        const idsArray = (excludeIds as string)
+          .split(",")
+          .map((id) => new mongoose.Types.ObjectId(id));
+        filter._id = { $nin: idsArray };
+      }
+
+      const count = await Question.countDocuments(filter);
+      if (count === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No more questions in this category",
+        });
+      }
+
+      const randomIndex = Math.floor(Math.random() * count);
+      const question = await Question.findOne(filter).skip(randomIndex);
 
       if (!question) {
         return res
@@ -291,6 +307,7 @@ export class QuizController {
       res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
   //submitPracticeQuestion
   async submitPracticeAnswer(req: RequestWithUser, res: Response) {
     const { questionId, selectedOption } = req.body;
@@ -320,12 +337,10 @@ export class QuizController {
   }
   async getAvailableCategories(req: Request, res: Response) {
     try {
-      // সব unique categories খুঁজে বের করা হবে
       const categories = await Question.distinct("category", {
         isActive: true,
       });
 
-      // প্রতি category তে কতগুলা প্রশ্ন আছে সেটা count করা হবে
       const categoryStats = await Question.aggregate([
         { $match: { isActive: true } },
         {
@@ -344,16 +359,82 @@ export class QuizController {
         { $sort: { category: 1 } },
       ]);
 
+      const allQuestionSum = categoryStats.reduce((acc, curr) => {
+        return acc + curr.questionCount;
+      }, 0);
+
+      console.log("all Question Count", allQuestionSum);
+
       return res.status(200).json({
         message: "Categories fetched successfully",
         success: true,
         totalCategories: categories.length,
         categories: categoryStats,
+        TotalQuestion: allQuestionSum,
       });
     } catch (error: any) {
       console.error("Get categories error:", error);
       return res.status(500).json({
         message: "Failed to fetch categories",
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+  async getAllQuestion(req: Request, res: Response) {
+    const countAllQuestion = await Question.countDocuments();
+
+    const groupByCategory = await Question.aggregate([
+      {
+        $match: { isActive: true },
+      },
+      {
+        $group: {
+          _id: "$category",
+          totalQuestions: { $sum: 1 },
+          questions: { $push: "$$ROOT" },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+    res.status(201).json({
+      TotalQuestion: countAllQuestion,
+      allData: groupByCategory,
+    });
+  }
+  async getQuestionsByCategory(req: Request, res: Response) {
+    try {
+      const { category } = req.query;
+
+      if (!category) {
+        return res.status(400).json({
+          message: "Category is required",
+          success: false,
+        });
+      }
+
+      // নির্দিষ্ট ক্যাটাগরির সব প্রশ্ন খুঁজে বের করো
+      const questions = await Question.find({ category, isActive: true });
+
+      if (!questions.length) {
+        return res.status(404).json({
+          message: `No questions found for category: ${category}`,
+          success: false,
+        });
+      }
+
+      return res.status(200).json({
+        message: `Questions fetched for category: ${category}`,
+        success: true,
+        totalQuestions: questions.length,
+        data: questions,
+      });
+    } catch (error: any) {
+      console.error("Get questions error:", error);
+      return res.status(500).json({
+        message: "Failed to fetch questions by category",
         success: false,
         error: error.message,
       });

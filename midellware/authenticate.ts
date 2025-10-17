@@ -3,23 +3,15 @@ import jwt from "jsonwebtoken";
 import { RequestWithUser } from "../src/Schema";
 
 export function authMiddleware(
-  req: RequestWithUser,
+  req: Request,
   res: Response,
   next: NextFunction
 ) {
-  const JWT_SECRET = process.env.JWT_SECRET as string;
-
   try {
-    let token: string | undefined;
-
-    token = req.cookies?.accessToken;
-    console.log("req cookies", req.cookies.accessToken);
-    console.log("token", token);
-
-    if (!token && req.headers.authorization) {
-      if (req.headers.authorization.startsWith("Bearer ")) {
-        token = req.headers.authorization.split(" ")[1];
-      }
+    let token = req.cookies?.accessToken;
+    console.log("Cookies:", req.cookies);
+    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
     }
 
     if (!token) {
@@ -28,24 +20,18 @@ export function authMiddleware(
         .json({ message: "Unauthorized: No token provided" });
     }
 
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as unknown as {
-        id: string;
-        email: string;
-      };
-      req.user = decoded;
-    } catch (err: any) {
-      if (err.name === "TokenExpiredError") {
-        return res.status(401).json({ message: "Token expired" });
-      }
-      return res.status(401).json({ message: "Invalid token" });
-    }
+    const decoded = jwt.decode(token) as {
+      id: string;
+      email: string;
+    };
+    console.log("Decoded payload:", decoded);
+
+    (req as RequestWithUser).user = decoded; // ✅ runtime-safe assignment
+    console.log("Middleware user attached:", (req as any).user);
 
     next();
   } catch (err) {
-    console.error("Auth middleware error:", err);
-    return res
-      .status(401)
-      .json({ message: "Unauthorized: Invalid or expired token" });
+    console.error("JWT verification failed:", err);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 }

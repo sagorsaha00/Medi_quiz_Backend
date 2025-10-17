@@ -24,7 +24,14 @@ router.get("/categories", (req, res) =>
 router.get("/getRandomQuestion", (req, res) =>
   quizController.getRandomQuestion(req, res)
 );
-router.post("/submitRandomQuiz", (req,res) => {
-  quizController.submitPracticeAnswer(req,res);
-})
+router.post("/submitRandomQuiz", (req, res) => {
+  quizController.submitPracticeAnswer(req, res);
+});
+
+router.get("/allQuestion", (req, res) => {
+  quizController.getAllQuestion(req, res);
+});
+router.get("/QuestionByCategory", (req, res) => {
+  quizController.getQuestionsByCategory(req, res);
+});
 export default router;

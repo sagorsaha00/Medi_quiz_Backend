@@ -26,6 +26,9 @@ export const io = new Server(server, {
   },
   transports: ["websocket", "polling"],
 });
+app.get("/", (req, res) => {
+  res.send("✅ Medi Quiz Backend API is running successfully!");
+});
 
 server.listen(port, () => {
   initDb();

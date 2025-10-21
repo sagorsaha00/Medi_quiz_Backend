@@ -29,5 +29,5 @@ export const io = new Server(server, {
 
 server.listen(port, () => {
   initDb();
-  console.log("🚀 Server running");
+  console.log(`🚀 Server running on port ${port}`);
 });

@@ -8,7 +8,7 @@ export function authMiddleware(
 ) {
   try {
     let token = req.cookies?.accessToken;
-    console.log("Cookies:", req.cookies);
+
     if (!token && req.headers.authorization?.startsWith("Bearer ")) {
       token = req.headers.authorization.split(" ")[1];
     }
@@ -46,24 +46,42 @@ export const verifyAccessToken = (
 ) => {
   const authHeader = req.headers.authorization;
   console.log("authHeader", authHeader);
+
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized: No token provided" });
+    return res.status(401).json({
+      message: "Unauthorized: No token provided",
+      error: "NO_TOKEN",
+    });
   }
 
   const token = authHeader.split(" ")[1];
   console.log("Extracted token:", token);
 
   try {
-    const decoded = jwt.decode(token) as {
+    // ✅ jwt.verify() use করুন, decode() না
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
       id: string;
       email: string;
     };
-    console.log("decode", decoded);
 
+    console.log("✅ Token verified successfully:", decoded);
     req.user = decoded;
     next();
-  } catch (err) {
-    console.error("JWT verification failed:", err);
-    return res.status(403).json({ message: "Invalid or expired token" });
+  } catch (err: any) {
+    console.error("❌ JWT verification failed:", err.message);
+
+    // Token expire হলে আলাদা message
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        message: "Token expired, please login again",
+        error: "TOKEN_EXPIRED",
+      });
+    }
+
+    // অন্য কোনো সমস্যা হলে
+    return res.status(403).json({
+      message: "Invalid token",
+      error: "INVALID_TOKEN",
+    });
   }
 };

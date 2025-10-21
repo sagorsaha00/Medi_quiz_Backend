@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { RequestWithUser } from "../src/Schema";
 
 export function authMiddleware(
   req: Request,
@@ -35,3 +34,36 @@ export function authMiddleware(
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
+
+export interface RequestWithUser extends Request {
+  user?: any;
+}
+
+export const verifyAccessToken = (
+  req: RequestWithUser,
+  res: Response,
+  next: NextFunction
+) => {
+  const authHeader = req.headers.authorization;
+  console.log("authHeader", authHeader);
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Unauthorized: No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  console.log("Extracted token:", token);
+
+  try {
+    const decoded = jwt.decode(token) as {
+      id: string;
+      email: string;
+    };
+    console.log("decode", decoded);
+
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error("JWT verification failed:", err);
+    return res.status(403).json({ message: "Invalid or expired token" });
+  }
+};

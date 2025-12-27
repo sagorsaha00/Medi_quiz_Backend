@@ -6,8 +6,9 @@ import app from "./app";
 import { initDb } from "../src/database/initiDb";
 import cors from "cors";
 
-const port = process.env.PORT || 3000;
-// ---- CORS ----
+// const port = process.env.PORT || 3000;
+const port = 3000 ;
+ 
 app.use(
   cors({
     origin: "*",

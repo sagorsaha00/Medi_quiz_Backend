@@ -34,4 +34,8 @@ router.get("/allQuestion", (req, res) => {
 router.get("/QuestionByCategory", (req, res) => {
   quizController.getQuestionsByCategory(req, res);
 });
+router.get("/getQuestionsForExam", (req, res) => {
+  quizController.getQuestionsForExam(req, res);
+});
+
 export default router;

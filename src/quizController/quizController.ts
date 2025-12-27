@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { RequestWithUser } from "../Schema";
 import { Question, SubmitResult } from "../database/quizModel";
 export class QuizController {
-  // ✅ Upload/Create Question
+  //  Upload/Create Question
   async createQuestion(req: RequestWithUser, res: Response) {
     try {
       const data = req.body;
@@ -117,27 +117,27 @@ export class QuizController {
     }
   }
 
-  // ✅ Get Questions for Quiz (without correct answers)
+  //get all questions for quiz
   async getQuestionsForQuiz(req: Request, res: Response) {
     console.log("question get hit");
-    const { limit, category, excludeIds } = req.query; // নতুন query param যোগ
+    const { limit, category, excludeIds } = req.query;
 
     try {
       const filter: any = { isActive: true };
 
-      
+
       if (category && category !== "all") {
         filter.category = {
           $regex: new RegExp(category as string, "i"),
         };
       }
 
-      // আগে দেখা প্রশ্ন বাদ
+
       if (excludeIds) {
         const idsArray = (excludeIds as string)
           .split(",")
           .map((id) => new mongoose.Types.ObjectId(id));
-        filter._id = { $nin: idsArray }; // এগুলো বাদ যাবে
+        filter._id = { $nin: idsArray };
       }
 
       const questionLimit = parseInt(limit as string) || 20;
@@ -232,7 +232,7 @@ export class QuizController {
       });
     }
   }
-  // ✅ Get User's Quiz Result History
+  //  Get users Quiz Result History
   async getUserHistory(req: RequestWithUser, res: Response) {
     try {
       // const userId = req.user?.id;
@@ -440,4 +440,81 @@ export class QuizController {
       });
     }
   }
+  async getQuestionsForExam(req: Request, res: Response) {
+    console.log("question get hit");
+
+    const { categories } = req.query;
+
+    try {
+      if (!categories) {
+        return res.status(400).json({
+          success: false,
+          message: "Categories are required",
+        });
+      }
+
+      const categoryList = (categories as string)
+        .split(",")
+        .map((c) => c.trim().toLowerCase());
+
+      if (categoryList.length !== 4) {
+        return res.status(400).json({
+          success: false,
+          message: "Exactly 4 categories must be selected",
+        });
+      }
+
+      const QUESTIONS_PER_CATEGORY = 25;
+      let allQuestions: any[] = [];
+
+      // 🔥 25 random question per category
+      for (const category of categoryList) {
+        const questions = await Question.aggregate([
+          {
+            $match: {
+              isActive: true,
+              category: { $regex: new RegExp(`^${category}$`, "i") },
+            },
+          },
+          { $sample: { size: QUESTIONS_PER_CATEGORY } },
+          {
+            $project: {
+              _id: 1,
+              question: 1,
+              options: 1,
+              category: 1,
+              answer: 1,
+            },
+          },
+        ]);
+
+        allQuestions.push(...questions);
+      }
+
+      // 🔀 Final shuffle
+      allQuestions.sort(() => Math.random() - 0.5);
+
+      return res.status(200).json({
+        success: true,
+        message: "Questions fetched successfully",
+        total: allQuestions.length, // should be 100
+        categories: categoryList,
+        questions: allQuestions.map((q) => ({
+          id: q._id,
+          question: q.question,
+          options: q.options,
+          category: q.category,
+          answer: q.answer,
+        })),
+      });
+    } catch (error: any) {
+      console.error("Get questions error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch questions",
+        error: error.message,
+      });
+    }
+  }
+
 }

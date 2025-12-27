@@ -58,7 +58,7 @@ export const verifyAccessToken = (
   console.log("Extracted token:", token);
 
   try {
-    // ✅ jwt.verify() use করুন, decode() না
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
       id: string;
       email: string;
@@ -70,7 +70,7 @@ export const verifyAccessToken = (
   } catch (err: any) {
     console.error("❌ JWT verification failed:", err.message);
 
-    // Token expire হলে আলাদা message
+
     if (err.name === "TokenExpiredError") {
       return res.status(401).json({
         message: "Token expired, please login again",

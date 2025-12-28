@@ -128,19 +128,20 @@ export class QuizController {
 
       if (category && category !== "all") {
         filter.category = {
-          $regex: new RegExp(category as string, "i"),
+          $regex: new RegExp(category.toString(), "i"),
         };
       }
 
 
       if (excludeIds) {
-        const idsArray = (excludeIds as string)
+        const idsArray = (excludeIds.toString())
           .split(",")
           .map((id) => new mongoose.Types.ObjectId(id));
         filter._id = { $nin: idsArray };
       }
 
-      const questionLimit = parseInt(limit as string) || 20;
+      const questionLimit = Number(limit) || 20;
+
 
       const questions = await Question.aggregate([
         { $match: filter },
@@ -263,14 +264,14 @@ export class QuizController {
 
       const filter: any = { isActive: true };
 
-      // ✅ Category filter
+
       if (category && category !== "all") {
-        filter.category = { $regex: new RegExp(category as string, "i") };
+        filter.category = { $regex: new RegExp(category.toString(), "i") };
       }
 
-      // ✅ exclude previously seen questions
+
       if (excludeIds) {
-        const idsArray = (excludeIds as string)
+        const idsArray = (excludeIds.toString())
           .split(",")
           .map((id) => new mongoose.Types.ObjectId(id));
         filter._id = { $nin: idsArray };
@@ -453,7 +454,7 @@ export class QuizController {
         });
       }
 
-      const categoryList = (categories as string)
+      const categoryList = String(categories)
         .split(",")
         .map((c) => c.trim().toLowerCase());
 

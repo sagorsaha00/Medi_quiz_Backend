@@ -136,7 +136,7 @@ export class QuizController {
       if (excludeIds) {
         const idsArray = (excludeIds.toString())
           .split(",")
-          .map((id) => new mongoose.Types.ObjectId(id));
+          .map((id) => new mongoose.Types.ObjectId(id.toString()));
         filter._id = { $nin: idsArray };
       }
 
@@ -273,7 +273,7 @@ export class QuizController {
       if (excludeIds) {
         const idsArray = (excludeIds.toString())
           .split(",")
-          .map((id) => new mongoose.Types.ObjectId(id));
+          .map((id) => new mongoose.Types.ObjectId(id.toString()));
         filter._id = { $nin: idsArray };
       }
 
@@ -313,12 +313,16 @@ export class QuizController {
   async submitPracticeAnswer(req: RequestWithUser, res: Response) {
     const { questionId, selectedOption } = req.body;
 
+
+
     if (!questionId || !selectedOption) {
       return res
         .status(400)
         .json({ success: false, message: "Question or option missing" });
     }
-    const mongoQuestionId = new mongoose.Types.ObjectId(questionId);
+    const mongoQuestionId = new mongoose.Types.ObjectId(questionId.toString());
+    //mongoose.Types.ObjectId.isValid()
+
     const question = await Question.findById(mongoQuestionId);
 
     if (!question) {

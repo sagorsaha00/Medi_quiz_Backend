@@ -37,7 +37,7 @@ export class QuizController {
             correctAnswer: q.correctAnswer,
             category: q.category.trim(),
             explanation: q.explanation?.trim(),
-            createdBy: req.user?.id,
+            createdBy: req.user?.id ? req.user.id.toString() : undefined,
             isActive: true,
           };
         });
@@ -97,7 +97,7 @@ export class QuizController {
         correctAnswer,
         category: category.trim(),
         explanation: explanation?.trim(),
-        createdBy: req.user?.id,
+        createdBy: req.user?.id ? req.user.id.toString() : undefined,
         isActive: true,
       });
 

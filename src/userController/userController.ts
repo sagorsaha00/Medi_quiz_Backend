@@ -9,6 +9,10 @@ import mongoose from "mongoose";
 
 export class UserController {
   constructor(private tokenService: TokenService) {}
+
+  async checkRoute(req: Request, res: Response) {
+    return res.status(200).json({ message: "✅ User route is working!" });
+  }
   async createUser(req: Request, res: Response) {
     const { FirstName, LastName, Username, Email, Password } = req.body;
 

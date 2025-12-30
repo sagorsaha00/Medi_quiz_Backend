@@ -11,6 +11,7 @@ const tokenService = new TokenService(refreshTokenRepository);
 const userController = new UserController(tokenService);
 const router = express.Router();
 
+router.get("/", (req, res) => userController.checkRoute(req, res));
 router.post("/createUser", (req, res) => userController.createUser(req, res));
 router.post("/loginUser", (req, res) => userController.loginUser(req, res));
 router.post("/refresh", (req, res) => userController.refreshToken(req, res));

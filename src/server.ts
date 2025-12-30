@@ -33,5 +33,6 @@ app.get("/", (req, res) => {
 
 server.listen(port, () => {
   initDb();
+  
   console.log(`🚀 Server running on port ${port}`);
 });

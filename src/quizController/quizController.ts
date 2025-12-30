@@ -26,6 +26,7 @@ export class QuizController {
             throw new Error("Correct answer must be A, B, C, or D");
           }
 
+
           return {
             question: q.question.trim(),
             options: {
@@ -136,7 +137,7 @@ export class QuizController {
       if (excludeIds) {
         const idsArray = (excludeIds.toString())
           .split(",")
-          .map((id) => new mongoose.Types.ObjectId(id.toString()));
+          .map((id) => new mongoose.Types.ObjectId(id as unknown as string));
         filter._id = { $nin: idsArray };
       }
 
@@ -273,7 +274,7 @@ export class QuizController {
       if (excludeIds) {
         const idsArray = (excludeIds.toString())
           .split(",")
-          .map((id) => new mongoose.Types.ObjectId(id.toString()));
+          .map((id) => new mongoose.Types.ObjectId(id as unknown as string));
         filter._id = { $nin: idsArray };
       }
 
@@ -320,7 +321,7 @@ export class QuizController {
         .status(400)
         .json({ success: false, message: "Question or option missing" });
     }
-    const mongoQuestionId = new mongoose.Types.ObjectId(questionId.toString());
+    const mongoQuestionId = new mongoose.Types.ObjectId(questionId as unknown as string);
     //mongoose.Types.ObjectId.isValid()
 
     const question = await Question.findById(mongoQuestionId);

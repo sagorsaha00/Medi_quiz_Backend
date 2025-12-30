@@ -35,7 +35,7 @@ export class UserController {
       });
 
       await newUser.save();
-      const payload = { id: newUser._id as string, email: newUser.email };
+      const payload = { id: newUser._id as unknown as string, email: newUser.email };
 
       const accessToken = this.tokenService.genarateAccessToken(payload);
       const refreshToken = await this.tokenService.genarateRefreshToken(
@@ -57,7 +57,7 @@ export class UserController {
       return res.status(201).json({
         message: "✅ Registration successful",
         user: {
-          id: newUser._id,
+          id: newUser._id as unknown as string,
           email: newUser.email,
           firstName: newUser.firstName,
           lastName: newUser.lastName,

@@ -9,7 +9,13 @@ export const initDb = async () => {
       throw new Error("Database URL is not defined in environment variables.");
     }
 
-    await mongoose.connect(dbUrl);
+    // await mongoose.connect(dbUrl);
+    await mongoose.connect(dbUrl, {
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+    });
+
 
     console.log("MongoDB connected successfully!");
   } catch (error) {
